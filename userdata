@@ -1,0 +1,40 @@
+#!/bin/bash
+
+yum -y update
+yum -y install httpd mc
+dnf -y install openssl mod_ssl
+
+sudo systemctl start httpd
+sudo systemctl enable httpd
+
+mkdir -p /etc/ssl/private /etc/ssl/certs
+
+cat <<EOF > /etc/ssl/site.info
+[req]
+prompt = no
+distinguished_name = req_distinguished_name
+
+[req_distinguished_name]
+C = ua
+ST = LV
+L = Lviv
+O = IT-STEP
+OU = Labs
+CN = my-host.domain.com
+emailAddress = mail@domain.com
+EOF
+
+openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -config /etc/ssl/site.info -keyout /etc/ssl/private/my-server.key -out /etc/ssl/certs/my-server.crt
+
+cat <<EOF > /etc/httpd/conf.d/ssl.conf
+Listen 443 https
+<VirtualHost *:443>
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/certs/my-server.crt
+    SSLCertificateKeyFile /etc/ssl/private/my-server.key
+    DocumentRoot "/var/www/html"
+    ServerName my-host.domain.com
+</VirtualHost>
+EOF
+
+sudo systemctl restart httpd
